@@ -7,8 +7,8 @@ import { BoxLineGeometry } from 'three/examples/jsm/geometries/BoxLineGeometry.j
 
 
 class App {
-    constructor() {
 
+    constructor() {
 
         this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100)
         this.camera.position.set(0, 1.6, 3);
@@ -31,14 +31,13 @@ class App {
 
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.target.set(0, 1.6, 0);
-
+        this.controls.update()
 
         this.initScene()
         this.setupXR()
 
-        this.tick()
-
         window.addEventListener('resize', this.resize())
+        this.renderer.setAnimationLoop(this.render.bind(this))
     }
 
     initScene() {
@@ -78,10 +77,7 @@ class App {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-
-    tick() {
-        window.requestAnimationFrame(() => this.tick())
-        this.controls.update()
+    render() {
         this.renderer.render(this.scene, this.camera)
     }
 }
