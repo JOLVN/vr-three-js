@@ -2,8 +2,8 @@
 
 import * as THREE from 'three'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton'
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { BoxLineGeometry } from 'three/examples/jsm/geometries/BoxLineGeometry.js';
 
 
 class App {
@@ -14,14 +14,18 @@ class App {
         this.camera.position.set(0, 1.6, 3)
 
         this.scene = new THREE.Scene()
+        this.room = new THREE.Group()
+        this.clock = new THREE.Clock()
 
         this.setLight()
         this.setRenderer()
         this.setControls()
         this.initSpheres()
 
+        this.setupControllers()
         this.setupXR()
 
+        this.renderer.setAnimationLoop(this.render.bind(this))
         window.addEventListener('resize', this.resize())
     }
 
@@ -30,7 +34,6 @@ class App {
         const light = new THREE.DirectionalLight(0xffffff)
         light.position.set(1, 1, 1).normalize();
         this.scene.add(light);
-
     }
 
     setControls() {
@@ -46,7 +49,6 @@ class App {
         this.renderer.outputEncoding = THREE.sRGBEncoding;
 
         document.body.appendChild(this.renderer.domElement)
-        this.renderer.setAnimationLoop(this.render.bind(this))
     }
 
     initSpheres() {
@@ -63,67 +65,71 @@ class App {
             object.position.y = Math.random() * size
             object.position.z = Math.random() * size - size / 2
 
-            this.scene.add(object)
+            this.room.add(object)
         }
+        this.scene.add(this.room)
     }
 
     setupXR() {
         this.renderer.xr.enabled = true
         const button = VRButton.createButton(this.renderer)
-        setTimeout(() => {
-            this.setupControllers()
-            this.createHands()
-        }, 2000);
         document.body.appendChild(button)
     }
 
 
     setupControllers() {
-        this.controller1 = this.renderer.xr.getController(0)
-        this.controller1.addEventListener('selectstart', this.handleControls('onSelectStart'))
-        this.controller1.addEventListener('selectend', this.handleControls('onSelectEnd'))
-        this.controller1.addEventListener('squeezestart', this.handleControls('onSqueezeStart'))
-        this.controller1.addEventListener('squeezeend', this.handleControls('onSqueezeEnd'))
 
-        this.controller2 = this.renderer.xr.getController(1)
-        this.controller2.addEventListener('selectstart', this.handleControls('onSelectStart'))
-        this.controller2.addEventListener('selectend', this.handleControls('onSelectEnd'))
-        this.controller2.addEventListener('squeezestart', this.handleControls('onSqueezeStart'))
-        this.controller2.addEventListener('squeezeend', this.handleControls('onSqueezeEnd'))
+        this.controller = this.renderer.xr.getController(0)
+        this.controller.addEventListener('selectstart', () => {
+            this.userData.isSelecting = true
+        })
+        this.controller.addEventListener('selectend', () => {
+            this.userData.isSelecting = true
+        })
+        this.controller.addEventListener('connected', (event) => {
+            this.add(buildController(event.data))
+        })
+        this.controller.addEventListener('disconnected', () => {
+            this.remove(this.children[0])
+        })
 
-        this.painter1 = new TubePainter()
-        this.scene.add(this.painter1.mesh)
-        this.controller1.userData.painter = this.painter1
+        this.scene.add(this.controller
 
-        this.painter2 = new TubePainter()
-        this.scene.add(this.painter2.mesh)
-        this.controller2.userData.painter = this.painter2
+        )
 
-        this.scene.add(this.controller1)
-        this.scene.add(this.controller2)
+        // TODO: Check that
+        const controllerModelFactory = new XRControllerModelFactory();
+
+        this.controllerGrip = this.renderer.xr.getControllerGrip(0);
+        this.controllerGrip.add(controllerModelFactory.createControllerModel(this.controllerGrip));
+        this.scene.add(this.controllerGrip);
     }
 
-    createHands() {
-        const geometry = new THREE.BoxGeometry(0.3, 0.3)
-        geometry.rotateX(- Math.PI / 2)
-        const material = new THREE.MeshStandardMaterial({ flatShading: true })
-        const mesh = new THREE.Mesh(geometry, material)
+    buildController(data) {
+        let geometry, material;
+        switch (data.targetRayMode) {
+            case 'tracked-pointer':
+                geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, - 1], 3));
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute([0.5, 0.5, 0.5, 0, 0, 0], 3));
 
-        pivot = new THREE.Mesh(new THREE.IcosahedronGeometry(0.01, 3))
-        pivot.name = 'pivot'
-        pivot.position.z = - 0.05
-        mesh.add(pivot)
+                material = new THREE.LineBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending });
 
-        this.controller1.add(mesh.clone())
-        this.controller2.add(mesh.clone())
+                return new THREE.Line(geometry, material);
+            case 'gaze':
+                geometry = new THREE.RingGeometry(0.02, 0.04, 32).translate(0, 0, - 1);
+                material = new THREE.MeshBasicMaterial({ opacity: 0.5, transparent: true });
+                return new THREE.Mesh(geometry, material);
+        }
+
     }
 
     handleController(controller) {
-        this.userData = controller.userData
+        const userData = controller.userData
         const painter = controller.userData
         const pivot = controller.getObjectByName('pivot')
 
-        if (this.userData.isSqueezing === true) {
+        if (userData.isSqueezing === true) {
 
             const delta = (controller.position.y - userData.positionAtSqueezeStart) * 5
             const scale = Math.max(0.1, userData.scaleAtSqueezeStart + delta)
@@ -134,7 +140,7 @@ class App {
 
         cursor.setFromMatrixPosition(pivot.matrixWorld)
 
-        if (this.userData.isSelecting === true) {
+        if (userData.isSelecting === true) {
             painter.lineTo(cursor)
             painter.update()
         } else {
@@ -162,11 +168,20 @@ class App {
     }
 
     render() {
-        setTimeout(() => {
-            handleController(this.controller1)
-            handleController(this.controller2)
 
-        }, 2000);
+        const delta = this.clock.getDelta() * 60
+
+        if (this.controller.userData.isSelecting === true) {
+            const cube = room.children[0]
+            this.room.remove(cube)
+
+            cube.position.copy(this.controller.position);
+            cube.userData.velocity.x = (Math.random() - 0.5) * 0.02 * delta
+            cube.userData.velocity.y = (Math.random() - 0.5) * 0.02 * delta
+            cube.userData.velocity.z = (Math.random() * 0.01 - 0.05) * delta
+            cube.userData.velocity.applyQuaternion(this.controller.quaternion);
+            this.room.add(cube);
+        }
         this.renderer.render(this.scene, this.camera)
     }
 }
