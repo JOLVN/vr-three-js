@@ -15,12 +15,10 @@ class App {
 
         this.scene = new THREE.Scene()
 
-        this.vrExperience = false
-
         this.setLight()
         this.setRenderer()
         this.setControls()
-        this.initScene()
+        this.initSpheres()
 
         this.setupXR()
 
@@ -51,9 +49,8 @@ class App {
         this.renderer.setAnimationLoop(this.render.bind(this))
     }
 
-    initScene() {
+    initSpheres() {
         this.radius = 0.08
-
 
         const geometry = new THREE.IcosahedronBufferGeometry(this.radius, 2)
 
@@ -73,11 +70,10 @@ class App {
     setupXR() {
         this.renderer.xr.enabled = true
         const button = VRButton.createButton(this.renderer)
-        button.onclick = () => {
-            this.vrExperience = true
+        setTimeout(() => {
             this.setupControllers()
             this.createHands()
-        }
+        }, 2000);
         document.body.appendChild(button)
     }
 
@@ -95,16 +91,16 @@ class App {
         this.controller2.addEventListener('squeezestart', this.handleControls('onSqueezeStart'))
         this.controller2.addEventListener('squeezeend', this.handleControls('onSqueezeEnd'))
 
-        this.painter1 = new TubePainter();
-        this.scene.add(this.painter1.mesh);
-        this.controller1.userData.painter = this.painter1;
+        this.painter1 = new TubePainter()
+        this.scene.add(this.painter1.mesh)
+        this.controller1.userData.painter = this.painter1
 
-        this.painter2 = new TubePainter();
-        this.scene.add(this.painter2.mesh);
-        this.controller2.userData.painter = this.painter2;
+        this.painter2 = new TubePainter()
+        this.scene.add(this.painter2.mesh)
+        this.controller2.userData.painter = this.painter2
 
-        this.scene.add(this.controller1);
-        this.scene.add(this.controller2);
+        this.scene.add(this.controller1)
+        this.scene.add(this.controller2)
     }
 
     createHands() {
@@ -160,16 +156,17 @@ class App {
     }
 
     resize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.camera.aspect = window.innerWidth / window.innerHeight
+        this.camera.updateProjectionMatrix()
+        this.renderer.setSize(window.innerWidth, window.innerHeight)
     }
 
     render() {
-        if (this.vrExperience) {
+        setTimeout(() => {
             handleController(this.controller1)
             handleController(this.controller2)
-        }
+
+        }, 2000);
         this.renderer.render(this.scene, this.camera)
     }
 }
