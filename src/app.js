@@ -124,30 +124,6 @@ class App {
 
     }
 
-    handleController(controller) {
-        const userData = controller.userData
-        const painter = controller.userData
-        const pivot = controller.getObjectByName('pivot')
-
-        if (userData.isSqueezing === true) {
-
-            const delta = (controller.position.y - userData.positionAtSqueezeStart) * 5
-            const scale = Math.max(0.1, userData.scaleAtSqueezeStart + delta)
-
-            pivot.scale.setScalar(scale)
-            painter.setSize(scale)
-        }
-
-        cursor.setFromMatrixPosition(pivot.matrixWorld)
-
-        if (userData.isSelecting === true) {
-            painter.lineTo(cursor)
-            painter.update()
-        } else {
-            painter.moveTo(cursor)
-        }
-    }
-
     handleControls(event) {
         if (event === 'onSelectStart') this.userData.isSelecting = true
         if (event === 'onSelectEnd') this.userData.isSelecting = false
@@ -172,7 +148,7 @@ class App {
         const delta = this.clock.getDelta() * 60
 
         if (this.controller.userData.isSelecting === true) {
-            const cube = room.children[0]
+            const cube = this.room.children[0]
             this.room.remove(cube)
 
             cube.position.copy(this.controller.position);
